@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import ChatPanel from "@/components/ChatPanel";
 import PRSubmitCard from "@/components/PRSubmitCard";
@@ -8,7 +8,9 @@ import ReviewProgress from "@/components/ReviewProgress";
 import AgentPanel from "@/components/AgentPanel";
 import FindingsPanel from "@/components/FindingsPanel";
 import DiffViewer from "@/components/DiffViewer";
-import type { Agent, Finding, PRInfo, ReviewStatus } from "@/types";
+import TestingPanel from "@/components/TestingPanel";
+import * as testingAgent from "@/lib/testingAgent";
+import type { Agent, Finding, PRInfo, ReviewStatus, TestingResult } from "@/types";
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -208,6 +210,7 @@ export default function Home() {
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus>("idle");
   const [agents, setAgents] = useState<Agent[]>(MOCK_AGENTS);
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [testingResult, setTestingResult] = useState<TestingResult | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const clearTimers = () => {
@@ -219,6 +222,7 @@ export default function Home() {
     clearTimers();
     setPrInfo(pr);
     setFindings([]);
+    setTestingResult(null);
     setAgents(MOCK_AGENTS.map((a) => ({ ...a, status: "idle", findingsCount: undefined })));
     setReviewStatus("loading_context");
 
@@ -252,6 +256,37 @@ export default function Home() {
       }, delay);
       timers.current.push(t);
     });
+
+    // ── Testing Agent — fires during the "verifying" step (t = 5200 ms) ──────
+    // At this point all other sub-agents have produced their findings.
+    // findingsSnapshot captures the findings that will have been revealed by
+    // the Finding Schedule by the time the testing delay fires (all findings
+    // from MOCK_FINDINGS are revealed by t = 6600 ms; we fire at 6800 ms to
+    // ensure everything is available, still within the "verifying" window
+    // which ends at t = 7200 ms when "done" fires).
+    const testingDelay = 6800;
+    const tTest = setTimeout(() => {
+      // Use a functional updater to read the current findings without a stale
+      // closure, with explicit type annotation to satisfy strict mode.
+      setFindings((currentFindings: Finding[]) => {
+        testingAgent
+          .run({ prInfo: pr, existingFindings: currentFindings })
+          .then((result) => {
+            setTestingResult(result);
+            // Append any new test-agent findings to the shared findings list
+            if (result.findings.length > 0) {
+              setFindings((prev: Finding[]) => {
+                const newIds = new Set(prev.map((f: Finding) => f.id));
+                const toAdd = result.findings.filter((f: Finding) => !newIds.has(f.id));
+                return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+              });
+            }
+          });
+        // Return unchanged — this functional update is purely for snapshot read
+        return currentFindings;
+      });
+    }, testingDelay);
+    timers.current.push(tTest);
   };
 
   const isReviewing = reviewStatus !== "idle" && reviewStatus !== "done";
@@ -357,6 +392,13 @@ export default function Home() {
           {findings.length > 0 && (
             <div>
               <FindingsPanel findings={findings} />
+            </div>
+          )}
+
+          {/* ── Testing Agent Results ────────────────────────────── */}
+          {reviewStatus === "done" && testingResult && (
+            <div>
+              <TestingPanel result={testingResult} />
             </div>
           )}
 
