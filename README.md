@@ -28,6 +28,19 @@
 
 ---
 
+---
+
+### 👨‍💻 My Role & Key Contributions
+
+**Role:** Testing Agent Lead / Full-Stack Integration
+
+* **Testing Sub-Agent Engine (`lib/testingAgent.ts`):** Developed testing-focused static review logic to identify missing tests, coverage gaps, test runner/config discrepancies, and correlate test suites with changed source files.
+* **Multi-Stack Tech Detection:** Built heuristics to identify the project tech stack (React, Node.js, Python) to ensure relevant, stack-specific review findings (preventing Python PRs from receiving inappropriate TypeScript-style assertions).
+* **Interactive UI (`components/TestingPanel.tsx`):** Built the dedicated Testing Review dashboard panel, seamlessly integrating standardized `Finding[]` diagnostics and evidence views into the main UI (`app/page.tsx`).
+* **Vercel Production Debugging & Resiliency:** Resolved async execution and agent-stuck issues during review workflows in the deployed Vercel runtime environment.
+
+---
+
 ## Problem Statement
 
 Code review is time-consuming and inconsistently applied. Reviewers frequently miss:
